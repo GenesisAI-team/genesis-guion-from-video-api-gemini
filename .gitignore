@@ -1,0 +1,43 @@
+# Entornos y dependencias
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Herramientas
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+coverage.json
+coverage.xml
+htmlcov/
+
+# Editores y sistema
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Material audiovisual: nunca se versiona
+*.mov
+*.MOV
+*.mp4
+*.MP4
+*.mkv
+*.wav
+*.mp3
+media/
+temporales/
+
+# Credenciales: nunca se versionan
+.env
+.env.*
+*.key
+*.pem
+secrets.json
