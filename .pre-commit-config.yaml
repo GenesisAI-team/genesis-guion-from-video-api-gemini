@@ -1,0 +1,42 @@
+default_install_hook_types: [pre-commit, pre-push]
+minimum_pre_commit_version: "4.0.0"
+fail_fast: true
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+        stages: [pre-commit]
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+        stages: [pre-commit]
+
+      - id: pytest-unit
+        name: pytest (unitarios rapidos)
+        entry: uv run pytest tests/unit -q
+        language: system
+        pass_filenames: false
+        always_run: true
+        require_serial: true
+        stages: [pre-commit]
+
+      # Gate de push: ejecuta la suite completa y despues aplica la cobertura
+      # 100/80/0 por archivo en un unico proceso, sin llamadas reales a Gemini.
+      - id: pytest-coverage-gate
+        name: pre-push (suite completa + cobertura 100/80/0)
+        entry: uv run python -m tools.prepush
+        language: system
+        pass_filenames: false
+        always_run: true
+        require_serial: true
+        stages: [pre-push]

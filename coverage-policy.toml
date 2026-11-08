@@ -1,0 +1,25 @@
+# Politica de cobertura estrategica por archivo (GEN-13 §6, GEN-18).
+#
+# Cada archivo medido debe coincidir con exactamente un patron. Si un archivo
+# no coincide con ningun patron, el gate FALLA (fail-closed): nunca se asume
+# una categoria por defecto.
+#
+# Los patrones se evaluan en orden; gana el primero que coincide.
+# Las rutas son relativas a la raiz del repositorio y usan "/" como separador.
+
+[thresholds]
+core = 100.0
+important = 80.0
+infrastructure = 0.0
+
+[files]
+# CORE - 100 %: validacion de tiempos y segmentos, duracion real, referencias
+# a material original y reglas criticas de seleccion.
+"src/genesis_video_ai/editorial/segments.py" = "core"
+
+# INFRASTRUCTURE - sin minimo: paquetes vacios sin comportamiento.
+"src/genesis_video_ai/__init__.py" = "infrastructure"
+"src/genesis_video_ai/*/__init__.py" = "infrastructure"
+
+# IMPORTANT - 80 %: se anadira cuando existan cliente Gemini, procesamiento
+# de video, jobs, exportacion y controladores.
