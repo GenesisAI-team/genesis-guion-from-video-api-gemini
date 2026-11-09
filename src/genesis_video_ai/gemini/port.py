@@ -52,7 +52,7 @@ class GeminiScriptPort(Protocol):
         Raises:
             GeminiNotAvailableError: Si el puerto no está operativo.
         """
-        ...
+        ...  # pragma: no cover - cuerpo de declaración de protocolo
 
 
 class FakeGeminiScriptPort:

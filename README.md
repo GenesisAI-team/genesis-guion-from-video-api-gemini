@@ -5,13 +5,15 @@ y propone **guiones audiovisuales verificables** construidos únicamente con mat
 realmente grabado: archivo de origen, tiempos de entrada/salida, orden narrativo y
 duración calculada.
 
-> Estado: **Fase 1 — base técnica**. Todavía no hay análisis ni generación de guiones.
+> Estado: **Fase 2 — análisis audiovisual técnico y segmentos**. Existe el análisis
+> técnico del material, sus contratos y los validadores editoriales; todavía no
+> hay generación de guiones.
 
 ## Requisitos
 
 - Windows 10/11 (x64)
 - [uv](https://docs.astral.sh/uv/) — gestiona el intérprete Python y el entorno virtual
-- FFmpeg / ffprobe en el `PATH` (solo necesario a partir de la Fase 2)
+- FFmpeg / ffprobe en el `PATH` (necesario para analizar los originales)
 
 El proyecto usa **Python 3.12**, instalado y gestionado por `uv`. Nunca se instala nada
 en el Python global del sistema.
@@ -47,17 +49,43 @@ uv run pre-commit install --hook-type pre-commit --hook-type pre-push
 
 ```
 src/genesis_video_ai/
-  ui/          # PySide6: ventanas y controladores de interacción
-  analysis/    # ffprobe/FFmpeg y análisis técnico del material
-  editorial/   # motor editorial: segmentos, selección, validación, guiones
-  gemini/      # integración con el SDK oficial google-genai
-  jobs/        # gestión de trabajos, temporales y reintentos
-  models/      # contratos Pydantic compartidos
+  ui/          # PySide6: ventanas y controladores de interacción (Fase 4)
+  analysis/    # ffprobe: duración, pistas y metadatos MOV/MP4 con errores clasificados
+  editorial/   # motor editorial puro: rangos, orden, integridad y duración total
+  gemini/      # puerto Gemini y fake; el cliente real llega en la Fase 3
+  jobs/        # trabajos y temporales de sesión con limpieza garantizada
+  models/      # contratos Pydantic: fuentes, pistas, segmentos y peticiones
 tests/
   unit/        # rápidos y deterministas (gate de commit)
-  integration/ # flujos controlados, sin llamadas reales a Gemini
+  integration/ # ffprobe real sobre fixtures sintéticos, sin llamadas a Gemini
 tools/         # utilidades de calidad (gate de cobertura)
 ```
+
+## Qué sabe hacer la Fase 2
+
+- **Análisis técnico** (`analysis.ffprobe.probe_video`): lee duración real,
+  pistas y metadatos de MOV/MP4. Solo lectura del original, límite de peso
+  (4 GiB por defecto) y fallos clasificados: original inexistente, contenedor
+  no soportado, ffprobe ausente, ffprobe fallido o salida no interpretable.
+- **Contratos** (`models.contracts`): `SourceMedia` (original medido),
+  `StreamInfo` (pistas) y `Segment` (intervalo in/out referenciado por
+  `source_id`), todos inmutables y explicitando rutas absolutas.
+- **Validación editorial** (`editorial.sequence`): reglas puras sobre la
+  secuencia — misma fuente, orden temporal, sin solapamientos, dentro de la
+  duración real, y duración total coherente con lo pedido (la insuficiencia
+  se declara).
+- **Temporales** (`jobs.tempfiles.session_temp_dir`): directorio de sesión
+  que se garantiza eliminado, incluso ante fallos.
+- **Puerto Gemini** (`gemini.port`): protocolo `GeminiScriptPort` y
+  `FakeGeminiScriptPort` que registra peticiones sin simular inferencia de
+  ningún tipo.
+
+## Roadmap
+
+- [x] Fase 1 — base técnica, repositorio y quality gates (GEN-18)
+- [x] Fase 2 — análisis audiovisual técnico y segmentos (GEN-36)
+- [ ] Fase 3 — cliente Gemini y generación de guiones verificables
+- [ ] Fase 4 — jobs completos, interfaz de usuario PySide6 y exportación
 
 ## Reglas del proyecto
 

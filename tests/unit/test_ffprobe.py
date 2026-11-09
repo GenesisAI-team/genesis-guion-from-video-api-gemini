@@ -336,6 +336,11 @@ def test_salida_json_no_diccionario(tmp_path: Path) -> None:
         {"streams": [], "format": {"duration": 10}},  # sin format_name
         {"streams": [1], "format": {"duration": "10", "format_name": "mov,mp4"}},  # pista no dict
         {"format": {"duration": "10", "format_name": "mov,mp4"}},  # sin clave streams
+        {"streams": []},  # sin sección format
+        {
+            "streams": [{"index": "cero", "codec_type": "video"}],
+            "format": {"duration": "1", "format_name": "mov,mp4"},
+        },  # índice no numérico
     ],
 )
 def test_salida_estructura_invalida(tmp_path: Path, payload: object) -> None:
@@ -384,9 +389,11 @@ def test_registro_de_formato_no_diccionario_se_ignora(tmp_path: Path) -> None:
         ("height", "no-numérico"),
         ("duration", "abc"),
         ("avg_frame_rate", "jjj"),
+        ("avg_frame_rate", 25),
+        ("avg_frame_rate", "25/la"),
     ],
 )
-def test_valores_de_pista_ilegibles_rechazados(tmp_path: Path, field: str, basura: str) -> None:
+def test_valores_de_pista_ilegibles_rechazados(tmp_path: Path, field: str, basura: object) -> None:
     media = make_media(tmp_path)
     payload = probe_payload(streams=[{"index": 0, "codec_type": "video", field: basura}])
     runner, _ = make_runner(stdout=json.dumps(payload))
