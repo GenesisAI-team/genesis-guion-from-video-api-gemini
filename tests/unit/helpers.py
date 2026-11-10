@@ -12,7 +12,7 @@ def make_source(duration_s: float = 42.5, source_id: str = "src-1") -> SourceMed
     """Factoría de la fuente original que se enviaría al puerto."""
     return SourceMedia(
         id=source_id,
-        path=Path("C:/medias/original.mp4"),
+        path=Path("C:/medias/original.mp4").resolve(),
         container="mp4",
         duration_s=duration_s,
         size_bytes=4242,

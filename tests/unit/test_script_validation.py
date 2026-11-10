@@ -30,7 +30,7 @@ def make_source(duration_s: float = 100.0) -> SourceMedia:
     """Fuente original de ejemplo."""
     return SourceMedia(
         id="src-1",
-        path=Path("C:/medias/original.mp4"),
+        path=Path("C:/medias/original.mp4").resolve(),
         container="mp4",
         duration_s=duration_s,
         size_bytes=4242,
