@@ -20,7 +20,6 @@ from genesis_video_ai.editorial.script_validation import (
 from genesis_video_ai.editorial.sequence import (
     ExcessMaterialError,
     InsufficientMaterialError,
-    OutOfBoundsError,
     OverlappingSegmentsError,
     SourceMismatchError,
 )
@@ -86,8 +85,9 @@ def test_tramos_solapados_se_rechazan() -> None:
         )
 
 
-def test_tramo_fuera_de_la_duracion_real_se_rechaza() -> None:
-    with pytest.raises(OutOfBoundsError):
+def test_tramo_mas_alla_de_la_duracion_real_es_inventado() -> None:
+    """Un tramo fuera de la duración del original nunca deriva de lo medido."""
+    with pytest.raises(InventedSegmentError):
         validate_script_spans(
             spans((20.0, 100.5)),
             source=make_source(),

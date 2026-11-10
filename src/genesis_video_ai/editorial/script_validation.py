@@ -71,18 +71,21 @@ def validate_script_spans(
     Raises:
         ValueError: Si los parámetros numéricos no son válidos.
         SourceMismatchError: Si el material medido referencia otro original.
+        InventedSegmentError: Si un tramo no deriva del material medido
+            (se comprueba antes que cualquier regla de duración: nunca se
+            negocia un total con material inventado).
         DisorderedSequenceError: Nunca (la entrada se ordena aquí).
         OverlappingSegmentsError: Si dos tramos solapan material.
         OutOfBoundsError: Si un tramo excede la duración real del original.
         InsufficientMaterialError: Si la duración total se queda corta.
         ExcessMaterialError: Si la duración total se excede.
-        InventedSegmentError: Si un tramo no deriva del material medido.
     """
     _check_requirements(requested_duration_s, tolerance_s)
     _check_measured_source(measured_segments, source.id)
 
     ordered_spans = tuple(sorted(spans, key=lambda span: span.start_s))
     _check_existing_time(ordered_spans)
+    _check_derived_from_measured(ordered_spans, measured_segments, tolerance_s)
     as_segments = [
         Segment(source_id=source.id, start_s=span.start_s, end_s=span.end_s)
         for span in ordered_spans
@@ -93,7 +96,6 @@ def validate_script_spans(
         requested_duration_s=requested_duration_s,
         tolerance_s=tolerance_s,
     )
-    _check_derived_from_measured(ordered_spans, measured_segments, tolerance_s)
 
     return ScriptValidation(
         ordered=ordered_spans,
