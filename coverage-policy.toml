@@ -24,6 +24,9 @@ infrastructure = 0.0
 # con temporales de sesión.
 "src/genesis_video_ai/analysis/ffprobe.py" = "important"
 "src/genesis_video_ai/gemini/port.py" = "important"
+"src/genesis_video_ai/gemini/config.py" = "important"
+"src/genesis_video_ai/gemini/prompts.py" = "important"
+"src/genesis_video_ai/gemini/response.py" = "important"
 "src/genesis_video_ai/jobs/tempfiles.py" = "important"
 
 # INFRASTRUCTURE - sin mínimo: paquetes vacíos sin comportamiento.
