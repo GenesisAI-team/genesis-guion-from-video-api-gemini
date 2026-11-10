@@ -37,7 +37,7 @@ def make_source(**overrides: object) -> SourceMedia:
     """Factoría de una fuente original válida."""
     values: dict[str, object] = {
         "id": "src-1",
-        "path": Path("C:/medias/original.mp4"),
+        "path": Path("C:/medias/original.mp4").resolve(),
         "container": "mp4",
         "duration_s": 120.0,
         "size_bytes": 1024,
@@ -181,7 +181,7 @@ def test_fuente_valida_con_datos_consistentes() -> None:
 def test_fuente_requiere_campos_minimos() -> None:
     source = SourceMedia(
         id="src-2",
-        path=Path("C:/medias/original.mov"),
+        path=Path("C:/medias/original.mov").resolve(),
         container="mov",
         duration_s=8.0,
         size_bytes=1,
@@ -194,7 +194,7 @@ def test_fuente_requiere_campos_minimos() -> None:
 
 def test_fuente_sin_id_genera_identificadores_unicos() -> None:
     kwargs: dict[str, object] = {
-        "path": Path("C:/medias/original.mp4"),
+        "path": Path("C:/medias/original.mp4").resolve(),
         "container": "mp4",
         "duration_s": 8.0,
         "size_bytes": 1,

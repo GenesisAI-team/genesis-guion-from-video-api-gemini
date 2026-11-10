@@ -17,14 +17,21 @@ infrastructure = 0.0
 # a material original y reglas críticas de selección.
 "src/genesis_video_ai/editorial/segments.py" = "core"
 "src/genesis_video_ai/editorial/sequence.py" = "core"
+"src/genesis_video_ai/editorial/script_validation.py" = "core"
 "src/genesis_video_ai/models/contracts.py" = "core"
 
 # IMPORTANT - 80 %: procesamiento de vídeo (ffprobe), puerto Gemini y jobs
 # con temporales de sesión.
 "src/genesis_video_ai/analysis/ffprobe.py" = "important"
 "src/genesis_video_ai/gemini/port.py" = "important"
+"src/genesis_video_ai/gemini/client.py" = "important"
+"src/genesis_video_ai/gemini/sdk_adapter.py" = "important"
+"src/genesis_video_ai/gemini/config.py" = "important"
+"src/genesis_video_ai/gemini/prompts.py" = "important"
+"src/genesis_video_ai/gemini/response.py" = "important"
 "src/genesis_video_ai/jobs/tempfiles.py" = "important"
 
 # INFRASTRUCTURE - sin mínimo: paquetes vacíos sin comportamiento.
 "src/genesis_video_ai/__init__.py" = "infrastructure"
 "src/genesis_video_ai/*/__init__.py" = "infrastructure"
+"src/genesis_video_ai/gemini/errors.py" = "infrastructure"
