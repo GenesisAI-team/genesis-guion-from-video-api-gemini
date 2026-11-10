@@ -17,6 +17,7 @@ infrastructure = 0.0
 # a material original y reglas críticas de selección.
 "src/genesis_video_ai/editorial/segments.py" = "core"
 "src/genesis_video_ai/editorial/sequence.py" = "core"
+"src/genesis_video_ai/editorial/script_validation.py" = "core"
 "src/genesis_video_ai/models/contracts.py" = "core"
 
 # IMPORTANT - 80 %: procesamiento de vídeo (ffprobe), puerto Gemini y jobs
