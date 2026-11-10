@@ -13,13 +13,18 @@ important = 80.0
 infrastructure = 0.0
 
 [files]
-# CORE - 100 %: validacion de tiempos y segmentos, duracion real, referencias
-# a material original y reglas criticas de seleccion.
+# CORE - 100 %: validación de tiempos y segmentos, duración real, referencias
+# a material original y reglas críticas de selección.
 "src/genesis_video_ai/editorial/segments.py" = "core"
+"src/genesis_video_ai/editorial/sequence.py" = "core"
+"src/genesis_video_ai/models/contracts.py" = "core"
 
-# INFRASTRUCTURE - sin minimo: paquetes vacios sin comportamiento.
+# IMPORTANT - 80 %: procesamiento de vídeo (ffprobe), puerto Gemini y jobs
+# con temporales de sesión.
+"src/genesis_video_ai/analysis/ffprobe.py" = "important"
+"src/genesis_video_ai/gemini/port.py" = "important"
+"src/genesis_video_ai/jobs/tempfiles.py" = "important"
+
+# INFRASTRUCTURE - sin mínimo: paquetes vacíos sin comportamiento.
 "src/genesis_video_ai/__init__.py" = "infrastructure"
 "src/genesis_video_ai/*/__init__.py" = "infrastructure"
-
-# IMPORTANT - 80 %: se anadira cuando existan cliente Gemini, procesamiento
-# de video, jobs, exportacion y controladores.

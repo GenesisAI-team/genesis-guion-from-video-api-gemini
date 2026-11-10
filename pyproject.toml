@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = { text = "Proprietary" }
 authors = [{ name = "Genesis" }]
-dependencies = []
+dependencies = [
+    "pydantic>=2.14.3",
+]
 
 [build-system]
 requires = ["hatchling"]
