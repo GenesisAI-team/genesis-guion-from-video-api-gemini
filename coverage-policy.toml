@@ -28,3 +28,4 @@ infrastructure = 0.0
 # INFRASTRUCTURE - sin mínimo: paquetes vacíos sin comportamiento.
 "src/genesis_video_ai/__init__.py" = "infrastructure"
 "src/genesis_video_ai/*/__init__.py" = "infrastructure"
+"src/genesis_video_ai/gemini/errors.py" = "infrastructure"
