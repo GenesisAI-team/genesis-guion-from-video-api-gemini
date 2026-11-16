@@ -27,6 +27,7 @@ infrastructure = 0.0
 "src/genesis_video_ai/gemini/client.py" = "important"
 "src/genesis_video_ai/gemini/sdk_adapter.py" = "important"
 "src/genesis_video_ai/gemini/config.py" = "important"
+"src/genesis_video_ai/gemini/grounding.py" = "important"
 "src/genesis_video_ai/gemini/prompts.py" = "important"
 "src/genesis_video_ai/gemini/response.py" = "important"
 "src/genesis_video_ai/jobs/tempfiles.py" = "important"

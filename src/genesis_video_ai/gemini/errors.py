@@ -38,3 +38,7 @@ class GeminiCancelledError(GeminiError):
 
 class GeminiInvalidResponseError(GeminiError):
     """La respuesta del modelo no es JSON válido o no cumple el esquema."""
+
+
+class MissingGroundingError(GeminiNotAvailableError):
+    """No hay material real ni anotaciones con los que anclar la narración."""
