@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from pathlib import Path
 
 import pytest
 from helpers import make_request
@@ -24,8 +25,10 @@ from genesis_video_ai.gemini.errors import (
     GeminiQuotaExceededError,
     GeminiRequestError,
     GeminiTimeoutError,
+    MissingGroundingError,
 )
-from genesis_video_ai.gemini.port import GeminiScriptPort, ScriptProposal
+from genesis_video_ai.gemini.grounding import GroundingMaterial, GroundingPort
+from genesis_video_ai.gemini.port import GeminiScriptPort, ScriptProposal, ScriptProposalRequest
 
 VALID_JSON = (
     '{"entries": [{"start_s": 0.0, "end_s": 10.0, "narration": "Locución inicial",'
@@ -63,12 +66,20 @@ class StubSession:
         before_return: Callable[[], None] | None = None,
     ) -> None:
         self.calls: list[tuple[str, type]] = []
+        self.medias: list[tuple[Path, ...]] = []
         self._text = text
         self._error = error
         self._before_return = before_return
 
-    def generate(self, prompt: str, response_schema: type) -> str:
+    def generate(
+        self,
+        prompt: str,
+        response_schema: type,
+        *,
+        media: Sequence[Path] = (),
+    ) -> str:
         self.calls.append((prompt, response_schema))
+        self.medias.append(tuple(media))
         if self._before_return is not None:
             self._before_return()
         if self._error is not None:
@@ -78,10 +89,25 @@ class StubSession:
         return self._text
 
 
+class GroundingFalso:
+    """Doble de grounding: entrega material precalculado sin tocar disco."""
+
+    def __init__(self, material: GroundingMaterial | None = None) -> None:
+        self._material = material
+        self.calls: list[ScriptProposalRequest] = []
+
+    def collect(self, request: ScriptProposalRequest) -> GroundingMaterial:
+        self.calls.append(request)
+        if self._material is not None:
+            return self._material
+        return GroundingMaterial(media=(request.source.path,))
+
+
 def make_client(
     session: StubSession,
     config: GeminiClientConfig | None = None,
     cancel_event: threading.Event | None = None,
+    grounding: GroundingPort | None = None,
 ) -> tuple[RealGeminiScriptPort, list[GeminiClientConfig]]:
     """Cliente con sesión inyectada; registra las configs recibidas."""
     received: list[GeminiClientConfig] = []
@@ -94,6 +120,7 @@ def make_client(
         config or GeminiClientConfig(api_key="clave-falsa"),
         session_factory=factory,
         cancel_event=cancel_event,
+        grounding=grounding or GroundingFalso(),
     )
     return port, received
 
@@ -195,6 +222,29 @@ def test_prompt_incluye_duracion_pedida_y_segmentos() -> None:
     prompt, _ = session.calls[0]
     assert "7.0" in prompt
     assert "10.0" in prompt
+
+
+def test_el_cliente_adjunta_el_material_real_a_la_sesion() -> None:
+    session = StubSession()
+    port, _ = make_client(session)
+    request = make_request()
+
+    port.propose_script(request)
+
+    assert session.medias == [(request.source.path,)]
+
+
+def test_sin_material_real_no_se_genera_narracion() -> None:
+    session = StubSession()
+    grounding = GroundingFalso(material=GroundingMaterial())
+    port, _ = make_client(session, grounding=grounding)
+    request = make_request()
+
+    with pytest.raises(MissingGroundingError, match="material real"):
+        port.propose_script(request)
+
+    assert grounding.calls == [request]
+    assert session.calls == []
 
 
 # --- validación sin confianza ciega --------------------------------------------

@@ -133,13 +133,19 @@ def test_flujo_completo_con_sesion_inyectada(tmp_path: Path) -> None:
         ' "justification": "Bloque dos"}'
         "]}"
     )
-    calls: list[tuple[str, Any]] = []
+    calls: list[tuple[str, Any, tuple[Path, ...]]] = []
 
     class SesionFalsa:
         """Sesión inyectada: devuelve el JSON programado y registra llamadas."""
 
-        def generate(self, prompt: str, response_schema: Any) -> str:
-            calls.append((prompt, response_schema))
+        def generate(
+            self,
+            prompt: str,
+            response_schema: Any,
+            *,
+            media: Sequence[Path] = (),
+        ) -> str:
+            calls.append((prompt, response_schema, tuple(media)))
             return model_json
 
     port = RealGeminiScriptPort(
@@ -153,8 +159,9 @@ def test_flujo_completo_con_sesion_inyectada(tmp_path: Path) -> None:
     assert result.total_duration_s == pytest.approx(90.0)
     assert [entry.start_s for entry in result.entries] == [0.0, 60.0]
     assert all(entry.source_id == source.id for entry in result.entries)
-    prompt, schema = calls[0]
+    prompt, schema, media = calls[0]
     assert source.id in prompt
     assert "[0.0, 45.0]" in prompt
     assert "[60.0, 105.0]" in prompt
     assert schema.__name__ == "ScriptPayload"
+    assert media == (source.path,)

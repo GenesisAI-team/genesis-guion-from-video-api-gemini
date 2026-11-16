@@ -2,6 +2,9 @@
 
 Orquesta la generación con límites y sin confianza ciega:
 
+    - antes de nada se reúne el material real del original (grounding):
+      archivos y anotaciones de contenido; sin evidencia no se genera
+      (``MissingGroundingError``) y la narración nunca se emite en el vacío;
     - la sesión con el SDK se construye perezosamente y se reutiliza; sin
       credencial el fallo es controlado (``GeminiNotAvailableError``);
     - la llamada corre en un hilo de trabajo con plazo configurado y
@@ -10,7 +13,8 @@ Orquesta la generación con límites y sin confianza ciega:
       reglas editoriales del material medido antes de convertirse en guion;
       los segmentos inventados se rechazan y la insuficiencia se declara.
 
-Nunca se llama a la API en tests ni en CI: la sesión se inyecta.
+Nunca se llama a la API en tests ni en CI: la sesión y el grounding se
+inyectan.
 """
 
 from __future__ import annotations
@@ -19,18 +23,24 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
+from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from genesis_video_ai.editorial.script_validation import ScriptSpan, validate_script_spans
 from genesis_video_ai.gemini.config import GeminiClientConfig
-from genesis_video_ai.gemini.errors import GeminiCancelledError, GeminiTimeoutError
+from genesis_video_ai.gemini.errors import (
+    GeminiCancelledError,
+    GeminiTimeoutError,
+    MissingGroundingError,
+)
+from genesis_video_ai.gemini.grounding import GroundingPort, SourceMediaGrounding
 from genesis_video_ai.gemini.port import ScriptEntry, ScriptProposal, ScriptProposalRequest
 from genesis_video_ai.gemini.prompts import build_script_prompt
 from genesis_video_ai.gemini.response import parse_payload
 from genesis_video_ai.gemini.sdk_adapter import GoogleGenaiScriptSession
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     from genesis_video_ai.gemini.sdk_adapter import ResponseSchema
 
@@ -41,8 +51,14 @@ POLL_INTERVAL_S: float = 0.02
 class ScriptSession(Protocol):
     """Sesión de generación: el adaptador del SDK la implementa."""
 
-    def generate(self, prompt: str, response_schema: ResponseSchema) -> str:
-        """Genera texto estructurado para el prompt dado."""
+    def generate(
+        self,
+        prompt: str,
+        response_schema: ResponseSchema,
+        *,
+        media: Sequence[Path] = (),
+    ) -> str:
+        """Genera texto estructurado con el prompt y el material real adjunto."""
         ...  # pragma: no cover - cuerpo de declaración de protocolo
 
 
@@ -55,11 +71,13 @@ class RealGeminiScriptPort:
         *,
         session_factory: Callable[[GeminiClientConfig], ScriptSession] | None = None,
         cancel_event: threading.Event | None = None,
+        grounding: GroundingPort | None = None,
     ) -> None:
         """Construye el puerto; no se conecta ni realiza ninguna llamada."""
         self._config = config
         self._session_factory = session_factory or self._default_session_factory
         self._cancel_event = cancel_event or threading.Event()
+        self._grounding: GroundingPort = grounding or SourceMediaGrounding()
         self._session: ScriptSession | None = None
 
     @staticmethod
@@ -73,9 +91,15 @@ class RealGeminiScriptPort:
     def propose_script(self, request: ScriptProposalRequest) -> ScriptProposal:
         """Propone un guion trazable con la API de Gemini.
 
+        Sin cancelación pendiente se garantiza la sesión (los errores de
+        credencial siguen mandando) y acto seguido se reúne el material
+        real: si no hay evidencia no se genera y el material se adjunta a la
+        petición para que la narración ancle al original.
+
         Raises:
-            GeminiNotAvailableError: Si no hay credencial o el SDK falta.
             GeminiCancelledError: Si se solicitó cancelar la operación.
+            GeminiNotAvailableError: Si no hay credencial o el SDK falta.
+            MissingGroundingError: Si no hay material real que adjuntar.
             GeminiTimeoutError: Si la generación excede el plazo configurado.
             GeminiQuotaExceededError: Si la API deniega por cuota.
             GeminiRequestError: Si la petición falla por otra causa.
@@ -86,8 +110,15 @@ class RealGeminiScriptPort:
         """
         self._raise_if_cancelled()
         session = self._ensure_session()
-        prompt = build_script_prompt(request)
-        raw = self._generate_with_limits(session, prompt)
+        material = self._grounding.collect(request)
+        if material.is_empty:
+            msg = (
+                "no hay material real del original que adjuntar: "
+                "la narración no se genera sin evidencia"
+            )
+            raise MissingGroundingError(msg)
+        prompt = build_script_prompt(request, material)
+        raw = self._generate_with_limits(session, prompt, material.media)
         payload = parse_payload(raw)
         return self._build_proposal(request, payload)
 
@@ -101,12 +132,22 @@ class RealGeminiScriptPort:
             self._session = self._session_factory(self._config)
         return self._session
 
-    def _generate_with_limits(self, session: ScriptSession, prompt: str) -> str:
+    def _generate_with_limits(
+        self,
+        session: ScriptSession,
+        prompt: str,
+        media: Sequence[Path] = (),
+    ) -> str:
         """Ejecuta la generación con plazo y cancelación cooperativa."""
         self._raise_if_cancelled()
         executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="genesis-gemini")
         try:
-            future = executor.submit(session.generate, prompt, self._response_schema())
+            future = executor.submit(
+                session.generate,
+                prompt,
+                self._response_schema(),
+                media=media,
+            )
             started = time.monotonic()
             while True:
                 try:

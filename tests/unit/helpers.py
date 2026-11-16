@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from genesis_video_ai.gemini.grounding import ContentAnnotation, GroundingMaterial
 from genesis_video_ai.gemini.port import ScriptEntry, ScriptProposal, ScriptProposalRequest
 from genesis_video_ai.models.contracts import Segment, SourceMedia
 
@@ -58,3 +59,13 @@ def make_proposal(requested: float = 8.5) -> ScriptProposal:
         requested_duration_s=requested,
         entries=(make_entry(end_s=requested),),
     )
+
+
+def make_material(
+    media: tuple[Path, ...] | None = None,
+    annotations: tuple[ContentAnnotation, ...] = (),
+) -> GroundingMaterial:
+    """Factoría de material real de ejemplo para el prompt."""
+    if media is None:
+        media = (Path("C:/medias/original.mp4").resolve(),)
+    return GroundingMaterial(media=media, annotations=annotations)

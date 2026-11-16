@@ -139,14 +139,22 @@ tools/         # utilidades de calidad (gate de cobertura)
 ## Qué sabe hacer la Fase 3
 
 - **Cliente real** (`gemini.client.RealGeminiScriptPort`): genera el guion con
-  la API oficial detrás de `GeminiScriptPort`; construye el prompt con el
-  original y el material medido, fuerza salida JSON con esquema y valida la
-  respuesta antes de entregar una propuesta trazable.
+  la API oficial detrás de `GeminiScriptPort`; exige antes material real
+  (grounding), construye el prompt con el original, el material medido y la
+  evidencia adjunta, sube el material real con la Files API del SDK, fuerza
+  salida JSON con esquema y valida la respuesta antes de entregar una
+  propuesta trazable. Sin evidencia no se genera (`MissingGroundingError`).
+- **Grounding** (`gemini.grounding`): `SourceMediaGrounding` adjunta el
+  archivo original medido si existe en disco; las anotaciones de contenido
+  (`ContentAnnotation`) ya forman parte del contrato y del prompt, pero
+  **ningún componente las produce todavía**: hasta que exista un extractor de
+  transcripción/etiquetas, el material real se limita al propio archivo.
 - **Configuración** (`gemini.config.GeminiClientConfig`): modelo, plazo,
   límites de salida, temperatura, tolerancia de redondeo y clave vía entorno
   (`GEMINI_API_KEY`/`GOOGLE_API_KEY`), guardada como `SecretStr`.
 - **Errores tipados** (`gemini.errors`): indisponibilidad, credenciales
-  inválidas, cuota (429), plazo excedido, cancelación y respuesta inválida.
+  inválidas, cuota (429), plazo excedido, cancelación, respuesta inválida y
+  falta de material real (grounding).
 - **Validación editorial de la propuesta** (`editorial.script_validation`):
   los tramos propuestos deben derivar del material medido
   (`InventedSegmentError` si no), ordenados, sin solapes, dentro de la
