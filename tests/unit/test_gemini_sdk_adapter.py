@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import sys
 import types
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -43,11 +44,30 @@ class StubModels:
         return self._session.next_result()
 
 
+class StubFiles:
+    """Sustituto de client.files que registra las subidas."""
+
+    def __init__(self, session: StubSession) -> None:
+        self._session = session
+
+    def upload(self, **kwargs: Any) -> Any:
+        if self._session.upload_error is not None:
+            raise self._session.upload_error
+        self._session.uploads.append(kwargs)
+        return self._session.upload_result
+
+
 class StubSession:
     """Cliente falso compatible con la forma usada por el adaptador."""
 
     def __init__(self, result: Any = None, error: Exception | None = None) -> None:
         self.calls: list[dict[str, Any]] = []
+        self.uploads: list[dict[str, Any]] = []
+        self.upload_result = types.SimpleNamespace(
+            name="files/fake-1",
+            uri="https://example.invalid/files/fake-1",
+        )
+        self.upload_error: Exception | None = None
         self._result = result
         self._error = error
 
@@ -84,6 +104,7 @@ def install_google_stub(monkeypatch: pytest.MonkeyPatch, client: StubSession) ->
         def __init__(self, **kwargs: Any) -> None:
             client.constructor_kwargs = kwargs  # type: ignore[attr-defined]
             self.models = StubModels(client)
+            self.files = StubFiles(client)
 
     genai_stub.Client = StubClient  # type: ignore[attr-defined]
     genai_root.genai = genai_stub  # type: ignore[attr-defined]
@@ -176,6 +197,53 @@ def test_generate_devuelve_respuesta_vacia_como_invalida(
 
     with pytest.raises(GeminiInvalidResponseError, match="vac"):
         session.generate("prompt", ScriptPayload)
+
+
+def test_generate_sube_el_material_real_y_lo_adjunta_al_contenido(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    media = tmp_path / "original.mp4"
+    media.write_bytes(b"x")
+    stub = StubSession(result=make_text_response('{"entries": []}'))
+    install_google_stub(monkeypatch, stub)
+    session = GoogleGenaiScriptSession(GeminiClientConfig(api_key="clave-falsa"))
+
+    session.generate("prompt de prueba", ScriptPayload, media=(media,))
+
+    assert stub.uploads == [{"file": media}]
+    contents = stub.calls[0]["contents"]
+    assert contents[0] == "prompt de prueba"
+    assert contents[1] is stub.upload_result
+
+
+def test_generate_sin_media_sigue_mandando_unicamente_el_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub = StubSession(result=make_text_response('{"entries": []}'))
+    install_google_stub(monkeypatch, stub)
+    session = GoogleGenaiScriptSession(GeminiClientConfig(api_key="clave-falsa"))
+
+    session.generate("prompt de prueba", ScriptPayload)
+
+    assert stub.uploads == []
+    assert stub.calls[0]["contents"] == "prompt de prueba"
+
+
+def test_error_al_subir_el_material_se_tipifica_como_peticion(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    media = tmp_path / "original.mp4"
+    stub = StubSession(result=make_text_response("{}"))
+    install_google_stub(monkeypatch, stub)
+    stub.upload_error = FileNotFoundError("falta el original en disco")
+    session = GoogleGenaiScriptSession(GeminiClientConfig(api_key="clave-falsa"))
+
+    with pytest.raises(GeminiRequestError, match="falta el original"):
+        session.generate("prompt", ScriptPayload, media=(media,))
+
+    assert stub.calls == []
 
 
 def test_generate_traduce_errores_de_la_api(monkeypatch: pytest.MonkeyPatch) -> None:

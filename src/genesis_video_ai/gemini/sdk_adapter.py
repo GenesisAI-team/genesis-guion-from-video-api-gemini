@@ -8,6 +8,8 @@ añade plazo y cancelación.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from genesis_video_ai.gemini.config import GeminiClientConfig
@@ -66,14 +68,25 @@ class GoogleGenaiScriptSession:
             http_options=types.HttpOptions(timeout=int(config.timeout_s * 1000)),
         )
 
-    def generate(self, prompt: str, response_schema: ResponseSchema) -> str:
+    def generate(
+        self,
+        prompt: str,
+        response_schema: ResponseSchema,
+        *,
+        media: Sequence[Path] = (),
+    ) -> str:
         """Genera texto estructurado para el prompt dado.
+
+        El material real ``media`` (originales medidos) se sube con la Files
+        API del SDK y se adjunta al contenido: el modelo recibe evidencia de
+        primera mano, no solo texto. Sin ``media`` solo viaja el prompt.
 
         Raises:
             GeminiQuotaExceededError: Si la API deniega por cuota.
             GeminiAuthError: Si las credenciales no son válidas.
             GeminiTimeoutError: Si la API excede su plazo.
-            GeminiRequestError: Si la petición falla por otra causa.
+            GeminiRequestError: Si la petición falla por otra causa,
+                incluida la subida del material real.
             GeminiInvalidResponseError: Si la respuesta no trae texto.
         """
         from google.genai import errors
@@ -88,9 +101,13 @@ class GoogleGenaiScriptSession:
             request_config["temperature"] = self._config.temperature
 
         try:
+            contents: Any = prompt
+            if media:
+                uploaded = [self._client.files.upload(file=path) for path in media]
+                contents = [prompt, *uploaded]
             response = self._client.models.generate_content(
                 model=self._config.model,
-                contents=prompt,
+                contents=contents,
                 config=request_config,
             )
         except errors.APIError as error:
