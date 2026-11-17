@@ -8,6 +8,7 @@ propiedades públicas de la ventana.
 from __future__ import annotations
 
 import json
+import threading
 import time
 from collections.abc import Sequence
 from pathlib import Path
@@ -263,6 +264,36 @@ class TestErroresDeLaVentana:
 
 
 class TestCancelacion:
+    def test_cancelar_notifica_al_puerto_con_el_mismo_evento(
+        self,
+        qapp: Any,
+        original: Path,
+    ) -> None:
+        eventos_del_puerto: list[threading.Event] = []
+
+        def fabrica(evento: threading.Event) -> Any:
+            eventos_del_puerto.append(evento)
+            return PuertoEcoScript(pausa_s=0.3)
+
+        ventana = ScriptStudioWindow(
+            fabrica,
+            probe_runner=runner_de_prueba,
+            video_chooser=lambda: original,
+        )
+        boton(ventana, "choose-video").click()
+        analizar_original(ventana, qapp)
+        anadir_segmento(ventana, 0.0, 90.0)
+        campo(ventana, "duration").setValue(90.0)
+
+        boton(ventana, "request").click()
+        esperar_hasta(qapp, lambda: ventana.is_busy)
+        boton(ventana, "cancel").click()
+        esperar_hasta(qapp, lambda: not ventana.is_busy, timeout_s=15.0)
+
+        assert eventos_del_puerto
+        assert eventos_del_puerto[-1].is_set()
+        assert "cancelado" in ventana.status_text.lower()
+
     def test_cancelar_mientras_genera_deja_el_guion_pendiente(
         self,
         qapp: Any,
@@ -287,6 +318,85 @@ class TestCancelacion:
         ventana.cancel_job()
 
         assert "No hay trabajo en marcha" in ventana.status_text
+
+
+class TestCambioDeVideo:
+    """Otro vídeo seleccionado invalida el análisis, los segmentos y el guion previos."""
+
+    def test_elegir_otro_video_invalida_el_analisis_anterior(
+        self,
+        qapp: Any,
+        tmp_path: Path,
+        original: Path,
+    ) -> None:
+        otro = tmp_path / "otro.mp4"
+        otro.write_bytes(b"x")
+        elegido = {"ruta": original}
+        puerto = PuertoEcoScript()
+        ventana = ScriptStudioWindow(
+            lambda cancel_event: puerto,
+            probe_runner=runner_de_prueba,
+            video_chooser=lambda: elegido["ruta"],
+        )
+        boton(ventana, "choose-video").click()
+        analizar_original(ventana, qapp)
+        anadir_segmento(ventana, 0.0, 90.0)
+        campo(ventana, "duration").setValue(90.0)
+        boton(ventana, "request").click()
+        esperar_hasta(qapp, lambda: not ventana.is_busy)
+        assert ventana.current_proposal is not None
+
+        elegido["ruta"] = otro
+        boton(ventana, "choose-video").click()
+
+        assert ventana.current_source is None
+        assert ventana.segment_values == ()
+        assert ventana.current_proposal is None
+        assert ventana.findChild(QPlainTextEdit, "review").toPlainText() == ""
+        assert ventana.findChild(QLabel, "source-info").text() == "Sin original analizado"
+        assert ventana.findChild(QTableWidget, "segments-table").rowCount() == 0
+        assert boton(ventana, "request").isEnabled() is False
+        assert boton(ventana, "export-json").isEnabled() is False
+        assert boton(ventana, "export-markdown").isEnabled() is False
+
+        solicitudes_antes = len(puerto.requests)
+        ventana.request_script()
+
+        assert ventana.is_busy is False
+        assert len(puerto.requests) == solicitudes_antes
+        assert "Analiza el vídeo" in ventana.status_text
+
+    def test_tras_cambiar_de_video_un_nuevo_analisis_habilita_la_generacion(
+        self,
+        qapp: Any,
+        tmp_path: Path,
+        original: Path,
+    ) -> None:
+        otro = tmp_path / "otro.mp4"
+        otro.write_bytes(b"x")
+        elegido = {"ruta": original}
+        puerto = PuertoEcoScript()
+        ventana = ScriptStudioWindow(
+            lambda cancel_event: puerto,
+            probe_runner=runner_de_prueba,
+            video_chooser=lambda: elegido["ruta"],
+        )
+        boton(ventana, "choose-video").click()
+        analizar_original(ventana, qapp)
+        anadir_segmento(ventana, 0.0, 90.0)
+
+        elegido["ruta"] = otro
+        boton(ventana, "choose-video").click()
+        analizar_original(ventana, qapp)
+        anadir_segmento(ventana, 0.0, 90.0)
+        campo(ventana, "duration").setValue(90.0)
+        boton(ventana, "request").click()
+        esperar_hasta(qapp, lambda: not ventana.is_busy)
+
+        guion = ventana.current_proposal
+        assert guion is not None
+        assert str(otro.resolve()) in ventana.review_text
+        assert puerto.requests[-1].source.path == otro.resolve()
 
 
 class TestProgresoYRecuperacion:

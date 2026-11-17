@@ -54,6 +54,8 @@ _PHASE_LABELS: dict[str, str] = {
     "generating": "Generando el guion (el material se envía a Google Gemini)…",
 }
 
+_SIN_ORIGINAL_ANALIZADO: str = "Sin original analizado"
+
 
 class ScriptStudioWindow(QMainWindow):
     """Ventana del estudio: elegir vídeo, revisar segmentos y exportar guion."""
@@ -110,7 +112,7 @@ class ScriptStudioWindow(QMainWindow):
         fila_video.addWidget(self._analyze_button)
         root.addLayout(fila_video)
 
-        self._source_info = QLabel("Sin original analizado")
+        self._source_info = QLabel(_SIN_ORIGINAL_ANALIZADO)
         self._source_info.setObjectName("source-info")
         root.addWidget(self._source_info)
 
@@ -199,9 +201,21 @@ class ScriptStudioWindow(QMainWindow):
         if elegido is None:
             self._show_status("No se eligió ningún vídeo")
             return
+        cambio = str(elegido) != self._video_path_edit.text()
         self._video_path_edit.setText(str(elegido))
+        if cambio:
+            self._descartar_analisis()
         self._show_status(f"Vídeo seleccionado: {elegido}")
         self._refresh_enabled()
+
+    def _descartar_analisis(self) -> None:
+        """Otro vídeo seleccionado: el análisis, segmentos y guion previos ya no valen."""
+        self._source = None
+        self._segments = []
+        self._proposal = None
+        self._refresh_segments_table()
+        self._review_view.clear()
+        self._source_info.setText(_SIN_ORIGINAL_ANALIZADO)
 
     def analyze_video(self) -> None:
         """Lanza el análisis del vídeo seleccionado."""
@@ -314,9 +328,10 @@ class ScriptStudioWindow(QMainWindow):
     # -- trabajos -----------------------------------------------------------
 
     def _start_job(self, job: Callable[[ScriptJobController], JobResult]) -> None:
+        cancelacion = threading.Event()
         controller = ScriptJobController(
-            self._port_factory(threading.Event()),
-            cancel_event=threading.Event(),
+            self._port_factory(cancelacion),
+            cancel_event=cancelacion,
             probe_runner=self._probe_runner,
             max_file_bytes=self._max_file_bytes,
             tolerance_s=self._tolerance_s,
