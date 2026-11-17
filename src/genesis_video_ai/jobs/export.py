@@ -24,10 +24,13 @@ def export_proposal_json(
     """Escribe la propuesta como JSON trazable y devuelve la ruta escrita.
 
     Raises:
-        ValueError: Si la propuesta no referencia el original dado.
+        ValueError: Si la propuesta no referencia el original dado, o si el
+            destino identifica al original (la exportación nunca destruye
+            el material).
     """
     _check_proposal_source(proposal, source)
     destino = Path(path)
+    _check_destino_seguro(destino, source)
     destino.parent.mkdir(parents=True, exist_ok=True)
     payload = _json_payload(proposal, source)
     destino.write_text(
@@ -45,10 +48,13 @@ def export_proposal_markdown(
     """Escribe la propuesta como Markdown legible y devuelve la ruta escrita.
 
     Raises:
-        ValueError: Si la propuesta no referencia el original dado.
+        ValueError: Si la propuesta no referencia el original dado, o si el
+            destino identifica al original (la exportación nunca destruye
+            el material).
     """
     _check_proposal_source(proposal, source)
     destino = Path(path)
+    _check_destino_seguro(destino, source)
     destino.parent.mkdir(parents=True, exist_ok=True)
     destino.write_text(_markdown_text(proposal, source), encoding="utf-8")
     return destino
@@ -62,6 +68,26 @@ def _check_proposal_source(proposal: ScriptProposal, source: SourceMedia) -> Non
             f"no {source.id!r}: la exportación sería inverifyificable"
         )
         raise ValueError(msg)
+
+
+def _check_destino_seguro(destino: Path, source: SourceMedia) -> None:
+    """El export no puede abrir para escritura el original ni un enlace hacia él."""
+    if _identifica_al_original(destino, source):
+        msg = (
+            f"El destino {destino} coincide con el original {source.path}: "
+            "la exportación destruiría el material original"
+        )
+        raise ValueError(msg)
+
+
+def _identifica_al_original(destino: Path, source: SourceMedia) -> bool:
+    """True si el destino es el original, o un symlink/hardlink hacia él."""
+    if destino.resolve(strict=False) == source.path.resolve(strict=False):
+        return True
+    try:
+        return destino.exists() and destino.samefile(source.path)
+    except OSError:
+        return False
 
 
 def _json_payload(proposal: ScriptProposal, source: SourceMedia) -> dict[str, Any]:
