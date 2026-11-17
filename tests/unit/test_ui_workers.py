@@ -44,3 +44,29 @@ def test_worker_termina_por_si_solo(qapp) -> None:
 
     worker.wait()
     assert not worker.isRunning()
+
+
+def test_run_ejecuta_el_trabajo_y_publica_el_resultado() -> None:
+    """run() a secas: coverage.py no traza hilos creados por Qt (C-level)."""
+    resultados: list[JobResult] = []
+    worker = ScriptJobWorker(lambda: JobResult(outcome="done"))
+    worker.job_finished.connect(resultados.append)
+
+    worker.run()
+
+    assert resultados == [JobResult(outcome="done")]
+
+
+def test_run_convierte_un_fallo_inesperado_en_resultado_failed() -> None:
+    resultados: list[JobResult] = []
+
+    def romper() -> JobResult:
+        raise ValueError("fallo inesperado")
+
+    worker = ScriptJobWorker(romper)
+    worker.job_finished.connect(resultados.append)
+
+    worker.run()
+
+    assert resultados[0].outcome == "failed"
+    assert isinstance(resultados[0].error, ValueError)
