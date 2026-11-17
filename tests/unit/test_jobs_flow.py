@@ -144,6 +144,31 @@ class TestAnalizar:
         assert resultado.outcome == "failed"
         assert isinstance(resultado.error, FileSizeLimitExceededError)
 
+    def test_cancelado_durante_el_probing_no_publica_exito(self, tmp_path: Path) -> None:
+        """La cancelación que ocurre mientras corre ffprobe gana al resultado."""
+        original = tmp_path / "original.mp4"
+        original.write_bytes(b"x")
+        evento = threading.Event()
+
+        def runner_que_cancela(args: Sequence[str]) -> CompletedProcess[str]:
+            evento.set()
+            return runner_de_prueba(args)
+
+        controlador_local = ScriptJobController(
+            ScriptedGeminiScriptPort(responses=[]),
+            probe_runner=runner_que_cancela,
+            cancel_event=evento,
+        )
+
+        resultado = controlador_local.analyze(original)
+
+        assert resultado.outcome == "cancelled"
+        assert resultado.source is None
+        assert [evento_fase.phase for evento_fase in resultado.events] == [
+            "analyzing",
+            "cancelled",
+        ]
+
 
 class TestGenerar:
     def test_valida_solicita_y_entrega_el_guion(self) -> None:

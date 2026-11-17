@@ -140,6 +140,8 @@ class ScriptJobController:
             )
         except Exception as exc:
             return self._failed(events, exc)
+        if self._cancelled(events):
+            return self._result("cancelled", events)
         self._emit(
             events,
             JobEvent("done", f"Original medido: {source.duration_s:g} s ({source.container})"),
