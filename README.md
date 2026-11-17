@@ -5,9 +5,31 @@ y propone **guiones audiovisuales verificables** construidos únicamente con mat
 realmente grabado: archivo de origen, tiempos de entrada/salida, orden narrativo y
 duración calculada.
 
-> Estado: **Fase 3 — cliente Gemini y guiones trazables**. La base técnica (Fase 1),
-> el análisis audiovisual con ffprobe y los contratos editoriales (Fase 2) están
-> cerrados; la UI de escritorio PySide6 llega en la Fase 4.
+> Estado: **Fase 4 — flujo de trabajos, interfaz PySide6 y exportación**. La base
+> técnica (Fase 1), el análisis audiovisual con ffprobe y los contratos editoriales
+> (Fase 2) y el cliente Gemini con guiones trazables (Fase 3) están cerrados.
+
+## Qué añade la Fase 4
+
+- **Controlador de trabajos** (`jobs.flow.ScriptJobController`): conecta el
+  análisis, la validación editorial y el puerto Gemini con estados observables
+  (`analyzing → validating → generating → done`), cancelación cooperativa que
+  gana al resultado, errores tipados convertidos en estados `failed`, límite de
+  peso del original y limpieza garantizada del temporal de sesión (también al
+  fallar o cancelar).
+- **Interfaz de escritorio PySide6** (`ui`): elegir vídeo MOV/MP4, analizarlo,
+  revisar los segmentos medidos, solicitar el guion, revisarlo y exportarlo.
+  El trabajo corre fuera del hilo de interfaz (`ui.workers.ScriptJobWorker`)
+  y la barra de estado muestra la fase en curso y los errores. Aviso visible
+  de que el material se envía a Google (Gemini API) al solicitar el guion;
+  presupuesto objetivo 0 € y sin persistencia de vídeo ni renderizado.
+- **Exportación verificable** (`jobs.export`): el guion se escribe en JSON y
+  Markdown donde el usuario decida, siempre con el original real (ruta
+  absoluta, contenedor, duración medida) y los tiempos in/out de cada tramo.
+- **Arranque**: `uv run genesis-video-ai` (o `python -m genesis_video_ai.ui`).
+  Sin credencial la aplicación abre igualmente y el fallo llega de forma
+  controlada al solicitar el guion: la ejecución real de Gemini sigue siendo
+  opt-in manual.
 
 ## Qué añade la Fase 3
 
@@ -39,6 +61,15 @@ uv python install 3.12
 uv sync
 uv run pytest
 ```
+
+Para abrir la aplicación de escritorio:
+
+```powershell
+uv run genesis-video-ai
+```
+
+Sin credencial de Gemini la aplicación abre igualmente; la generación real
+sigue siendo opt-in manual (ver más abajo).
 
 ## Comandos de calidad
 
@@ -104,11 +135,11 @@ cubre pruebas manuales puntuales sin facturación.
 
 ```
 src/genesis_video_ai/
-  ui/          # PySide6: ventanas y controladores de interacción (Fase 4)
+  ui/          # PySide6: ventana principal, worker de fondo y arranque
   analysis/    # ffprobe/FFmpeg y análisis técnico del material
   editorial/   # motor editorial: segmentos, selección, validación y reglas puras
   gemini/      # puerto, cliente real, configuración, prompts y errores tipados
-  jobs/        # gestión de trabajos, temporales y reintentos
+  jobs/        # controlador de trabajos, temporales, reintentos y exportación
   models/      # contratos Pydantic compartidos
 tests/
   unit/        # rápidos y deterministas (gate de commit)
@@ -163,12 +194,28 @@ tools/         # utilidades de calidad (gate de cobertura)
 - **Contrato de guion** (`ScriptProposal`/`ScriptEntry`): origen, ventanas
   in/out reales, narración y duración total calculada de las entradas.
 
+## Qué sabe hacer la Fase 4
+
+- **Flujo completo**: elegir vídeo (MOV/MP4) → analizar con ffprobe → revisar
+  los segmentos medidos → solicitar el guion a Gemini (con aviso del envío a
+  Google) → revisar el guion propuesto → exportar a JSON y Markdown.
+- **Estados y cancelación**: la barra de estado muestra la fase del trabajo
+  (`analizando`, `validando`, `generando`) y el botón Cancelar pide la parada
+  cooperativa; los errores tipados (original inexistente, contenedor no
+  soportado, límite de peso, material insuficiente o excesivo, cuota de la
+  API…) aparecen como mensajes claros y nunca tumban la aplicación.
+- **Temporales**: cada trabajo corre en un directorio temporal de sesión que
+  se elimina al terminar, incluso si el trabajo falla o se cancela.
+- **Exportación trazable**: JSON con el original, la duración pedida, la
+  total calculada y cada tramo (in/out, duración, narración, justificación);
+  Markdown con la misma trazabilidad en tabla legible.
+
 ## Roadmap
 
 - [x] Fase 1 — base técnica, repositorio y quality gates (GEN-18)
 - [x] Fase 2 — análisis audiovisual técnico y segmentos (GEN-36)
 - [x] Fase 3 — cliente Gemini y generación de guiones verificables (GEN-45)
-- [ ] Fase 4 — jobs completos, interfaz de usuario PySide6 y exportación
+- [x] Fase 4 — jobs completos, interfaz de usuario PySide6 y exportación
 
 ## Reglas del proyecto
 
@@ -180,14 +227,17 @@ tools/         # utilidades de calidad (gate de cobertura)
 - Presupuesto objetivo **0 €**: nunca se activa facturación automáticamente.
 - No se versiona material audiovisual ni credenciales; la clave viaja por entorno.
 
-## Limitaciones conocidas (Fase 3)
+## Limitaciones conocidas (Fase 4)
 
-- Un solo original por propuesta: `ScriptProposalRequest` referencia una única
-  fuente; el material multi-fuente queda para fases posteriores.
 - La cancelación es cooperativa: al expirar el plazo el hilo de trabajo se abandona
   (el SDK no expone aborto de petición en llamadas síncronas).
 - El modelo solo recorta dentro de los segmentos medidos; no genera material nuevo
   y la insuficiencia se declara si el material no alcanza la duración pedida.
-- Sin UI de escritorio todavía (Fase 4) y sin exportación/renderizado (fuera de alcance).
+- Un solo original por propuesta y una sola fuente en la ventana; el material
+  multi-fuente queda para fases posteriores.
+- Sin transcripciones/anotaciones automáticas todavía: los segmentos los define
+  el usuario en la ventana a partir de los tiempos medidos.
+- Sin persistencia de vídeo, sin renderizado y sin publicación: la app exporta
+  guiones (JSON/Markdown) bajo control del usuario.
 
 Ver `AGENTS.md` para el protocolo de trabajo completo.
