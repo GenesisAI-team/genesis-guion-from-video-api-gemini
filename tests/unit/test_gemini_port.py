@@ -21,7 +21,7 @@ def make_source(duration_s: float = 42.5) -> SourceMedia:
     """Factoría de la fuente original que se enviaría al puerto."""
     return SourceMedia(
         id="src-1",
-        path=Path("C:/medias/original.mp4"),
+        path=Path("C:/medias/original.mp4").resolve(),
         container="mp4",
         duration_s=duration_s,
         size_bytes=4242,
@@ -121,9 +121,12 @@ def test_google_no_disponible_es_runtime_error() -> None:
     assert issubclass(GeminiNotAvailableError, RuntimeError)
 
 
-def test_propuesta_sin_contenido_esta_sella_hasta_la_siguiente_fase() -> None:
-    proposal = ScriptProposal()
+def test_propuesta_definida_en_gen45_rechaza_campos_extra() -> None:
+    """GEN-45 define la forma de la propuesta; sigue siendo sellada."""
+    from helpers import make_proposal
+
+    proposal = make_proposal()
 
     with pytest.raises(ValidationError):
         ScriptProposal(estimado=1)  # type: ignore[call-arg]
-    assert proposal.model_dump() == {}
+    assert proposal.total_duration_s > 0

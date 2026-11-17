@@ -26,7 +26,7 @@ def make_source(duration_s: float = 60.0, id: str = "src-1") -> SourceMedia:
     """Factoría de una fuente original para los escenarios de secuencia."""
     return SourceMedia(
         id=id,
-        path=Path(f"C:/medias/{id}.mp4"),
+        path=Path(f"C:/medias/{id}.mp4").resolve(),
         container="mp4",
         duration_s=duration_s,
         size_bytes=2048,
