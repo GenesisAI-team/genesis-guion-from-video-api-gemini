@@ -21,7 +21,7 @@ infrastructure = 0.0
 "src/genesis_video_ai/models/contracts.py" = "core"
 
 # IMPORTANT - 80 %: procesamiento de vídeo (ffprobe), puerto Gemini y jobs
-# con temporales de sesión.
+# con temporales de sesión, exportación y controladores de la UI.
 "src/genesis_video_ai/analysis/ffprobe.py" = "important"
 "src/genesis_video_ai/gemini/port.py" = "important"
 "src/genesis_video_ai/gemini/client.py" = "important"
@@ -31,6 +31,11 @@ infrastructure = 0.0
 "src/genesis_video_ai/gemini/prompts.py" = "important"
 "src/genesis_video_ai/gemini/response.py" = "important"
 "src/genesis_video_ai/jobs/tempfiles.py" = "important"
+"src/genesis_video_ai/jobs/flow.py" = "important"
+"src/genesis_video_ai/jobs/export.py" = "important"
+"src/genesis_video_ai/ui/app.py" = "important"
+"src/genesis_video_ai/ui/window.py" = "important"
+"src/genesis_video_ai/ui/workers.py" = "important"
 
 # INFRASTRUCTURE - sin mínimo: paquetes vacíos sin comportamiento.
 "src/genesis_video_ai/__init__.py" = "infrastructure"

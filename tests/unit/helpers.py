@@ -2,11 +2,47 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from genesis_video_ai.gemini.grounding import ContentAnnotation, GroundingMaterial
-from genesis_video_ai.gemini.port import ScriptEntry, ScriptProposal, ScriptProposalRequest
+from genesis_video_ai.gemini.port import (
+    ScriptEntry,
+    ScriptProposal,
+    ScriptProposalRequest,
+)
 from genesis_video_ai.models.contracts import Segment, SourceMedia
+
+
+class PuertoEcoScript:
+    """Doble del puerto: convierte el material medido recibido en guion, sin inferencia.
+
+    Nunca llama a la API ni genera coste: el guion devuelto deriva
+    exclusivamente de los segmentos validados que llegan en la petición,
+    con el id real del original analizado.
+    """
+
+    def __init__(self, pausa_s: float = 0.0) -> None:
+        self._pausa_s = pausa_s
+        self.requests: list[ScriptProposalRequest] = []
+
+    def propose_script(self, request: ScriptProposalRequest) -> ScriptProposal:
+        time.sleep(self._pausa_s)
+        self.requests.append(request)
+        return ScriptProposal(
+            source_id=request.source.id,
+            requested_duration_s=request.requested_duration_s,
+            entries=tuple(
+                ScriptEntry(
+                    source_id=segmento.source_id,
+                    start_s=segmento.start_s,
+                    end_s=segmento.end_s,
+                    narration=f"Narración sobre [{segmento.start_s:g}, {segmento.end_s:g}] s.",
+                    justification="Derivado del material medido",
+                )
+                for segmento in request.segments
+            ),
+        )
 
 
 def make_source(duration_s: float = 42.5, source_id: str = "src-1") -> SourceMedia:
